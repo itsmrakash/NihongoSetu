@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth/authContext";
 
 export const metadata: Metadata = {
   title: "NihongoSetu — 日本語節 | Your Bridge to Japanese",
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="antialiased selection:bg-[#C83C50] selection:text-[#FFFFFF]">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

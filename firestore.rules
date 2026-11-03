@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // 1. Student Profiles & Device Limits
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Enforce maximum 3 concurrent devices quota
+      allow create, update: if (isOwner(userId) || isAdmin()) &&
+        (!('devices' in request.resource.data) || request.resource.data.devices.size() <= 3);
+      
+      allow delete: if isAdmin();
+
+      // Mock Examination Sub-collection
+      match /mockScores/{examId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) &&
+          request.resource.data.percentage >= 0 &&
+          request.resource.data.percentage <= 100;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // 2. Curricula & Content CMS (Public Read, Admin Write)
+    match /vocab/{vocabId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /kanji/{kanjiId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /grammar/{grammarId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /exams/{examId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /translations/{langId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. Security Audit Logs (Append-Only, Admin Read)
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable audit logs
+    }
+  }
+}
