@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #101C35;
+  --color-white: #FFFFFF;
+  --color-sakura: #C83C50;
+  --color-beige: #E8E0D5;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+  --font-japanese: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+}
+
+body {
+  background-color: var(--color-navy);
+  color: var(--color-white);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
