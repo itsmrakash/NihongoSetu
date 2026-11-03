@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { getStudentProfile, recordStudyActivity, StudentProfile } from "@/lib/storage/studentState";
 import { initOfflineSync } from "@/lib/storage/offline";
+import { syncItemToFirestore } from "@/lib/firebase/firestoreSync";
+import { firebaseLogout } from "@/lib/firebase/authService";
 import { LANGUAGES } from "@/components/public/Navbar";
 
 const PORTAL_NAV_ITEMS = [
@@ -54,7 +56,7 @@ export default function PortalLayout({
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const cleanup = initOfflineSync();
+    const cleanup = initOfflineSync(syncItemToFirestore);
     return cleanup;
   }, []);
 
@@ -70,8 +72,9 @@ export default function PortalLayout({
     setLangDropdownOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
+      await firebaseLogout().catch(() => {});
       localStorage.removeItem("nihongo_user");
       if (typeof document !== "undefined") {
         document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";

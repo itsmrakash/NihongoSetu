@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Mail, ArrowLeft, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
 import PublicNavbar from "@/components/public/Navbar";
 import PublicFooter from "@/components/public/Footer";
+import { firebaseResetPassword } from "@/lib/firebase/authService";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -12,7 +14,7 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -22,10 +24,24 @@ export default function ForgotPasswordPage() {
     }
 
     setIsLoading(true);
+
+    if (isFirebaseConfigured()) {
+      const res = await firebaseResetPassword(email);
+      if (!res.success) {
+        setError(res.error || "Failed to dispatch recovery email. Please check the address.");
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(false);
+      setSubmitted(true);
+      return;
+    }
+
+    // Local simulation fallback
     setTimeout(() => {
       setIsLoading(false);
       setSubmitted(true);
-    }, 700);
+    }, 500);
   };
 
   return (

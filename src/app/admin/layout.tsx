@@ -22,6 +22,7 @@ import {
   Activity,
   CheckCircle2,
 } from "lucide-react";
+import { firebaseLogout } from "@/lib/firebase/authService";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Dashboard", icon: Activity },
@@ -45,8 +46,9 @@ export default function AdminLayout({
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
+      await firebaseLogout().catch(() => {});
       localStorage.removeItem("nihongo_user");
       if (typeof document !== "undefined") {
         document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";

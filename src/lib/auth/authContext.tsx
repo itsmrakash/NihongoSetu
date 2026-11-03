@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getStudentProfile, saveStudentProfile, StudentProfile } from "@/lib/storage/studentState";
-import { subscribeToAuthState } from "@/lib/firebase/authService";
+import { subscribeToAuthState, firebaseLogout } from "@/lib/firebase/authService";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 export interface AuthUser {
@@ -106,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     try {
+      firebaseLogout().catch(() => {});
       localStorage.removeItem("nihongo_user");
       if (typeof document !== "undefined") {
         document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";

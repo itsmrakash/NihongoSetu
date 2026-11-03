@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { User, Mail, Lock, Globe, Award, ArrowRight, CheckCircle2 } from "lucide-react";
 import PublicNavbar from "@/components/public/Navbar";
 import PublicFooter from "@/components/public/Footer";
+import { firebaseRegister } from "@/lib/firebase/authService";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -42,7 +44,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -60,6 +62,49 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
+
+    if (isFirebaseConfigured()) {
+      const res = await firebaseRegister(email, password, fullName.trim());
+      if (!res.success) {
+        setError(res.error || "Registration failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      const logged = res.user!;
+      const newUser = {
+        name: logged.displayName || fullName.trim() || "Japanese Learner",
+        email: logged.email,
+        role: "student" as const,
+        targetLevel,
+        nativeLanguage,
+        createdAt: new Date().toISOString(),
+        streak: 1,
+        lastActive: new Date().toISOString(),
+        learnedKanji: 0,
+        learnedVocab: 0,
+        mockScores: [],
+      };
+
+      try {
+        localStorage.setItem("nihongo_user", JSON.stringify(newUser));
+        if (typeof document !== "undefined") {
+          document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify({
+            name: newUser.name,
+            email: newUser.email,
+            role: "student",
+          }))}; path=/; SameSite=Lax; max-age=604800`;
+        }
+      } catch {
+        // ignore storage error
+      }
+
+      setIsLoading(false);
+      router.push("/portal");
+      return;
+    }
+
+    // Local / Offline fallback
     setTimeout(() => {
       try {
         const newUser = {
@@ -88,7 +133,7 @@ export default function RegisterPage() {
       }
       setIsLoading(false);
       router.push("/portal");
-    }, 600);
+    }, 400);
   };
 
   return (

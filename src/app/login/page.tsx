@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Eye, EyeOff, Sparkles, Database } from "lucide-react";
 import PublicNavbar from "@/components/public/Navbar";
 import PublicFooter from "@/components/public/Footer";
+import { firebaseLogin } from "@/lib/firebase/authService";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,19 +19,56 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (!email || !password) {
-        setError("Please enter both email address and password.");
+    if (!email || !password) {
+      setError("Please enter both email address and password.");
+      setIsLoading(false);
+      return;
+    }
+
+    // When Firebase is configured and credentials are not default demo shortcuts, authenticate against Firebase Auth
+    if (isFirebaseConfigured() && !email.endsWith("@nihongosetu.org")) {
+      const res = await firebaseLogin(email, password);
+      if (!res.success) {
+        setError(res.error || "Authentication failed. Please check your credentials.");
         setIsLoading(false);
         return;
       }
 
-      // Check admin credentials or role switch
+      const logged = res.user!;
+      const sessionPayload = {
+        name: logged.displayName || email.split("@")[0],
+        email: logged.email,
+        role: logged.role,
+        targetLevel: "N5",
+        nativeLanguage: "en",
+        loggedInAt: new Date().toISOString(),
+      };
+
+      try {
+        localStorage.setItem("nihongo_user", JSON.stringify(sessionPayload));
+        if (typeof document !== "undefined") {
+          document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify(sessionPayload))}; path=/; SameSite=Lax; max-age=604800`;
+        }
+      } catch {
+        // ignore storage error
+      }
+
+      setIsLoading(false);
+      if (logged.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/portal");
+      }
+      return;
+    }
+
+    // Local / Demo Account flow (instant login for development or offline testing)
+    setTimeout(() => {
       if (role === "admin" || email.includes("admin")) {
         const sessionPayload = {
           name: "Master Sensei / Administrator",
@@ -68,7 +107,7 @@ export default function LoginPage() {
         router.push("/portal");
       }
       setIsLoading(false);
-    }, 600);
+    }, 400);
   };
 
   const handleQuickDemo = (demoType: "student" | "admin") => {
