@@ -15,7 +15,12 @@ const NAV_LINKS = [
   { href: "/contact", label: "Contact" },
 ];
 
-const LANGUAGES = [
+export interface LanguageOption {
+  code: string;
+  name: string;
+}
+
+export const LANGUAGES: LanguageOption[] = [
   { code: "en", name: "English" },
   { code: "ta", name: "தமிழ்" },
   { code: "hi", name: "हिन्दी" },

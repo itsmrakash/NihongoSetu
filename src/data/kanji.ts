@@ -235,4 +235,25 @@ export const KANJI_TARGET_COUNTS = {
   N1: 117
 };
 
+export interface KanjiCardItem {
+  character: string;
+  kunyomi: string;
+  onyomi: string;
+  meanings: string;
+  examples: string;
+  level: string;
+}
+
+export function getKanjiForLevel(level: string): KanjiCardItem[] {
+  const raw = ((KANJI_DATA as unknown) as Record<string, [string, string, string, string, string][]>)[level] || [];
+  return raw.map(([character, kunyomi, onyomi, meanings, examples]) => ({
+    character,
+    kunyomi,
+    onyomi,
+    meanings,
+    examples,
+    level,
+  }));
+}
+
 export { KANJI_DATA, KANJI_READING_EXAMPLES };
