@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getStudentProfile, saveStudentProfile, StudentProfile } from "@/lib/storage/studentState";
+import { subscribeToAuthState } from "@/lib/firebase/authService";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 export interface AuthUser {
   name: string;
@@ -15,6 +17,7 @@ interface AuthContextType {
   user: AuthUser | null;
   role: "student" | "admin" | null;
   loading: boolean;
+  isFirebaseConnected: boolean;
   login: (email: string, role?: "student" | "admin", name?: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (data: Partial<AuthUser>) => void;
@@ -24,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
   loading: true,
+  isFirebaseConnected: false,
   login: async () => false,
   logout: () => {},
   updateUser: () => {},
@@ -47,6 +51,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [loading, setLoading] = useState(false);
+
+  // Subscribe to real Firebase onAuthStateChanged when Firebase is configured
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+
+    const unsubscribe = subscribeToAuthState((firebaseUser) => {
+      if (firebaseUser) {
+        setUser((prev) => ({
+          name: firebaseUser.displayName || prev?.name || firebaseUser.email.split("@")[0],
+          email: firebaseUser.email,
+          role: firebaseUser.role, // Determined strictly by server Custom Claims
+          targetLevel: prev?.targetLevel || "N5",
+          nativeLanguage: prev?.nativeLanguage || "en",
+        }));
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   const login = useCallback(async (email: string, role: "student" | "admin" = "student", name?: string) => {
     setLoading(true);
@@ -113,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         role: user?.role || null,
         loading,
+        isFirebaseConnected: isFirebaseConfigured(),
         login,
         logout,
         updateUser,
