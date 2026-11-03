@@ -1,21 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, use } from "react";
+import React, { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getQuestionsForLevel, JLPTLevel, ExamQuestion } from "@/data/questions";
+import {
+  getClientQuestionsForLevel,
+  JLPTLevel,
+  ClientExamQuestion,
+  ExamReviewItem,
+} from "@/data/questions";
 import { saveMockExamResult } from "@/lib/storage/studentState";
 import {
   Clock,
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  ArrowRight,
-  ArrowLeft,
   RotateCcw,
   Award,
   ChevronRight,
   ChevronLeft,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function TimedMockExamPage({
@@ -30,43 +34,72 @@ export default function TimedMockExamPage({
     ? (rawLevel as JLPTLevel)
     : "N5";
 
-  // Load questions
-  const [questions] = useState<ExamQuestion[]>(() => getQuestionsForLevel(level).slice(0, 20));
+  // Client-safe questions deck (Contains NO correct answers or explanations)
+  const [questions] = useState<ClientExamQuestion[]>(() =>
+    getClientQuestionsForLevel(level).slice(0, 20)
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
+  const [isGrading, setIsGrading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [gradingError, setGradingError] = useState<string | null>(null);
+
+  // Server-verified grading results & post-exam solution review
   const [examResult, setExamResult] = useState<{
     score: number;
     total: number;
     percentage: number;
     passed: boolean;
+    signature?: string;
   } | null>(null);
+  const [reviewItems, setReviewItems] = useState<ExamReviewItem[]>([]);
 
-  const handleSubmit = useCallback(() => {
-    if (isSubmitted || questions.length === 0) return;
+  const handleSubmit = useCallback(async () => {
+    if (isSubmitted || isGrading || questions.length === 0) return;
+    setIsGrading(true);
+    setGradingError(null);
 
-    let correctCount = 0;
-    questions.forEach((q, idx) => {
-      if (selectedAnswers[idx] === q.correctIndex) {
-        correctCount++;
+    try {
+      const questionIds = questions.map((q) => q.id);
+      const res = await fetch("/api/exams/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          level,
+          answers: selectedAnswers,
+          questionIds,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.verifiedScore) {
+          saveMockExamResult(
+            level,
+            data.verifiedScore.score,
+            data.verifiedScore.total,
+            data.verifiedScore.signature
+          );
+          setExamResult(data.verifiedScore);
+          setReviewItems(data.review || []);
+          setIsSubmitted(true);
+          setIsGrading(false);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+          return;
+        }
       }
-    });
 
-    const total = questions.length;
-    const { passed, percentage } = saveMockExamResult(level, correctCount, total);
-
-    setExamResult({
-      score: correctCount,
-      total,
-      percentage,
-      passed,
-    });
-    setIsSubmitted(true);
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Server grading failed (HTTP ${res.status})`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Network error reaching evaluation server";
+      setGradingError(msg);
+      setIsGrading(false);
     }
-  }, [isSubmitted, questions, selectedAnswers, level]);
+  }, [isSubmitted, isGrading, questions, selectedAnswers, level]);
 
   // Countdown timer
   useEffect(() => {
@@ -93,10 +126,13 @@ export default function TimedMockExamPage({
   };
 
   const handleSelectOption = (optionIndex: number) => {
-    if (isSubmitted) return;
+    if (isSubmitted || isGrading) return;
+    const q = questions[currentIndex];
+    if (!q) return;
+
     setSelectedAnswers((prev) => ({
       ...prev,
-      [currentIndex]: optionIndex,
+      [q.id]: optionIndex,
     }));
   };
 
@@ -138,95 +174,104 @@ export default function TimedMockExamPage({
               : "bg-[#0B1323] text-[#FFFFFF] border-[#E8E0D5]/20"
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span className="font-mono text-base">{formatTime(timeLeft)}</span>
+          <Clock className="w-4 h-4 text-[#C83C50]" />
+          <span>{formatTime(timeLeft)}</span>
         </div>
       </div>
 
+      {/* Grading Error Alert */}
+      {gradingError && (
+        <div className="p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center justify-between">
+          <span>{gradingError}</span>
+          <button
+            onClick={handleSubmit}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg"
+          >
+            Retry Submission
+          </button>
+        </div>
+      )}
+
       {!isSubmitted ? (
         <>
-          {/* Question Jump Pills */}
-          <div className="bg-[#101C35] border border-[#E8E0D5]/15 rounded-2xl p-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-            {questions.map((_, idx) => {
-              const isAnswered = selectedAnswers[idx] !== undefined;
-              const isCurrent = currentIndex === idx;
+          {/* Question Stepper Indicator */}
+          <div className="bg-[#101C35] border border-[#E8E0D5]/15 rounded-2xl p-4 overflow-x-auto shadow-md">
+            <div className="flex items-center space-x-1.5 min-w-max">
+              {questions.map((q, idx) => {
+                const isCurrent = idx === currentIndex;
+                const isAnswered = selectedAnswers[q.id] !== undefined;
 
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold shrink-0 transition-all ${
-                    isCurrent
-                      ? "bg-[#C83C50] text-[#FFFFFF] ring-2 ring-[#FFFFFF]"
-                      : isAnswered
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-[#E8E0D5]/10 text-[#E8E0D5]/60 hover:bg-[#E8E0D5]/20"
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                      isCurrent
+                        ? "bg-[#C83C50] text-[#FFFFFF] shadow-md shadow-[#C83C50]/30 scale-105"
+                        : isAnswered
+                        ? "bg-[#E8E0D5]/20 text-[#FFFFFF] border border-[#E8E0D5]/40"
+                        : "bg-[#0B1323] text-[#E8E0D5]/50 border border-[#E8E0D5]/10 hover:border-[#E8E0D5]/30"
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Active Question Card */}
           <div className="bg-[#101C35] border border-[#E8E0D5]/20 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E8E0D5]/15 pb-4">
-              <span className="text-xs font-bold text-[#C83C50] uppercase tracking-wider">
-                Question {currentIndex + 1} of {questions.length} · {currentQuestion.category}
+            <div className="flex items-center justify-between border-b border-[#E8E0D5]/10 pb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#E8E0D5]/60">
+                Question {currentIndex + 1} of {questions.length}
               </span>
-              <span className="text-xs text-[#E8E0D5]/50">
-                Single Choice
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#E8E0D5]/10 text-[#E8E0D5] font-semibold">
+                {currentQuestion.category}
               </span>
             </div>
 
-            {/* Question Japanese Prompt */}
-            <div className="text-xl sm:text-2xl font-bold font-japanese text-[#FFFFFF] leading-relaxed">
+            {/* Prompt */}
+            <div className="text-xl sm:text-2xl font-bold font-japanese leading-relaxed text-[#FFFFFF]">
               {currentQuestion.question}
             </div>
 
-            {/* 4 Multiple Choice Radio Cards */}
+            {/* Options List */}
             <div className="space-y-3 pt-2">
               {currentQuestion.options.map((option, optIdx) => {
-                const isSelected = selectedAnswers[currentIndex] === optIdx;
+                const isSelected = selectedAnswers[currentQuestion.id] === optIdx;
 
                 return (
                   <button
                     key={optIdx}
                     onClick={() => handleSelectOption(optIdx)}
-                    className={`w-full p-4 rounded-2xl border text-left text-sm transition-all flex items-center justify-between ${
+                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center space-x-3.5 group ${
                       isSelected
-                        ? "bg-[#C83C50]/20 border-[#C83C50] text-[#FFFFFF] font-semibold shadow-md"
-                        : "bg-[#0B1323] border-[#E8E0D5]/15 text-[#E8E0D5] hover:bg-[#E8E0D5]/10 hover:border-[#E8E0D5]/30"
+                        ? "bg-[#C83C50]/15 border-[#C83C50] text-[#FFFFFF] shadow-lg shadow-[#C83C50]/10"
+                        : "bg-[#0B1323] border-[#E8E0D5]/15 text-[#E8E0D5] hover:border-[#E8E0D5]/40"
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <span className="w-7 h-7 rounded-lg bg-[#E8E0D5]/10 flex items-center justify-center font-bold text-xs">
-                        {optIdx + 1}
-                      </span>
-                      <span className="font-japanese text-base">{option}</span>
-                    </div>
-
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    <span
+                      className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
-                          ? "border-[#C83C50] bg-[#C83C50]"
-                          : "border-[#E8E0D5]/30"
+                          ? "bg-[#C83C50] text-[#FFFFFF]"
+                          : "bg-[#101C35] text-[#E8E0D5]/60 group-hover:text-[#FFFFFF]"
                       }`}
                     >
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-[#FFFFFF]" />}
-                    </div>
+                      {optIdx + 1}
+                    </span>
+                    <span className="text-base font-japanese">{option}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Nav controls between questions */}
-            <div className="flex items-center justify-between pt-4 border-t border-[#E8E0D5]/15">
+            {/* Navigation Controls */}
+            <div className="flex items-center justify-between pt-6 border-t border-[#E8E0D5]/10">
               <button
-                disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                className="px-4 py-2.5 rounded-xl bg-[#E8E0D5]/10 hover:bg-[#E8E0D5]/20 text-[#E8E0D5] text-xs font-semibold flex items-center space-x-1.5 disabled:opacity-30 transition-colors"
+                disabled={currentIndex === 0}
+                className="px-4 py-2.5 rounded-xl border border-[#E8E0D5]/20 text-[#E8E0D5] hover:bg-[#E8E0D5]/10 disabled:opacity-40 disabled:hover:bg-transparent text-xs font-semibold flex items-center space-x-1.5 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Previous</span>
@@ -243,17 +288,27 @@ export default function TimedMockExamPage({
               ) : (
                 <button
                   onClick={handleSubmit}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-[#FFFFFF] text-xs font-bold flex items-center space-x-1.5 transition-all shadow-lg shadow-emerald-600/30"
+                  disabled={isGrading}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-[#FFFFFF] text-xs font-bold flex items-center space-x-1.5 transition-all shadow-lg shadow-emerald-600/30"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Submit Final Exam</span>
+                  {isGrading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Grading on Server...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Submit Final Exam</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </div>
         </>
       ) : (
-        /* Results & Review Mode */
+        /* Results & Review Mode (Unlocked only after server-side grading) */
         <div className="space-y-8">
           {/* Score Header Card */}
           <div className="bg-[#101C35] border border-[#E8E0D5]/20 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
@@ -283,8 +338,14 @@ export default function TimedMockExamPage({
               <p className="text-xs text-[#E8E0D5]/70 max-w-md mx-auto">
                 {examResult?.passed
                   ? `Congratulations! You scored above the 70% threshold required for JLPT ${level} certification mastery.`
-                  : `You scored ${examResult?.percentage}%. A minimum of 70% (14/20) is required to pass. Review the detailed explanations below.`}
+                  : `You scored ${examResult?.percentage}%. A minimum of 70% is required to pass. Review the detailed solutions and grammar notes below.`}
               </p>
+              {examResult?.signature && (
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-mono mt-2">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Server Verified Score: {examResult.signature.slice(0, 16)}...</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-center gap-4 pt-2">
@@ -295,6 +356,7 @@ export default function TimedMockExamPage({
                   setCurrentIndex(0);
                   setTimeLeft(25 * 60);
                   setExamResult(null);
+                  setReviewItems([]);
                 }}
                 className="px-5 py-2.5 rounded-xl bg-[#C83C50] hover:bg-[#C83C50]/90 text-[#FFFFFF] text-xs font-bold flex items-center space-x-2 transition-all shadow-lg"
               >
@@ -318,13 +380,12 @@ export default function TimedMockExamPage({
             </h2>
 
             <div className="space-y-4">
-              {questions.map((q, idx) => {
-                const studentAnswer = selectedAnswers[idx];
-                const isCorrect = studentAnswer === q.correctIndex;
+              {reviewItems.map((item, idx) => {
+                const isCorrect = item.isCorrect;
 
                 return (
                   <div
-                    key={idx}
+                    key={item.id}
                     className={`rounded-2xl border p-5 space-y-3 ${
                       isCorrect
                         ? "bg-[#101C35] border-emerald-500/30"
@@ -337,7 +398,7 @@ export default function TimedMockExamPage({
                           Q{idx + 1}.
                         </span>
                         <span className="text-xs px-2 py-0.5 rounded bg-[#E8E0D5]/10 text-[#E8E0D5]/80">
-                          {q.category}
+                          {item.category}
                         </span>
                       </div>
 
@@ -357,16 +418,16 @@ export default function TimedMockExamPage({
                     </div>
 
                     <div className="text-base font-bold font-japanese text-[#FFFFFF]">
-                      {q.question}
+                      {item.question}
                     </div>
 
                     {/* Options summary */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {q.options.map((opt, oIdx) => {
+                      {item.options.map((opt, oIdx) => {
                         let optStyle = "bg-[#0B1323] text-[#E8E0D5]/70 border-[#E8E0D5]/10";
-                        if (oIdx === q.correctIndex) {
+                        if (oIdx === item.correctIndex) {
                           optStyle = "bg-emerald-500/20 text-emerald-300 font-bold border-emerald-500/40";
-                        } else if (oIdx === studentAnswer && !isCorrect) {
+                        } else if (oIdx === item.userSelected && !isCorrect) {
                           optStyle = "bg-rose-500/20 text-rose-300 line-through border-rose-500/40";
                         }
 
@@ -382,10 +443,10 @@ export default function TimedMockExamPage({
                       })}
                     </div>
 
-                    {/* Explanation */}
+                    {/* Explanation released from server */}
                     <div className="p-3 rounded-xl bg-[#0B1323] border border-[#E8E0D5]/10 text-xs text-[#E8E0D5]/80 leading-relaxed">
                       <strong className="text-[#C83C50]">Grammar & Meaning Note: </strong>
-                      {q.explanation}
+                      {item.explanation}
                     </div>
                   </div>
                 );

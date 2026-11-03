@@ -1,5 +1,7 @@
 "use client";
 
+import { queueSyncItem } from "@/lib/storage/offline";
+
 export interface StudentProfile {
   name: string;
   email: string;
@@ -85,6 +87,17 @@ export function saveStudentProfile(profile: StudentProfile): void {
       ns.mocks[m.level] = { score: m.score, total: m.total, date: m.date };
     });
     localStorage.setItem("ns", JSON.stringify(ns));
+
+    // Queue for background synchronization
+    queueSyncItem("users", "update", profile.email || "student", {
+      name: profile.name,
+      targetLevel: profile.targetLevel,
+      nativeLanguage: profile.nativeLanguage,
+      streak: profile.streak,
+      lastActive: profile.lastActive,
+      learnedKanjiCount: profile.learnedKanji.length,
+      learnedVocabCount: profile.learnedVocab.length,
+    });
   } catch (err) {
     console.error("Failed to persist student profile:", err);
   }
@@ -147,11 +160,13 @@ export function toggleLearnedVocab(term: string): boolean {
 export function saveMockExamResult(
   level: string,
   score: number,
-  total: number
+  total: number,
+  signature?: string
 ): { passed: boolean; percentage: number } {
   const profile = getStudentProfile();
   const percentage = Math.round((score / total) * 100);
   const passed = percentage >= 70;
+  const examDate = new Date().toISOString();
 
   profile.mockScores.unshift({
     level,
@@ -159,9 +174,23 @@ export function saveMockExamResult(
     total,
     percentage,
     passed,
-    date: new Date().toISOString(),
+    date: examDate,
   });
 
   saveStudentProfile(profile);
+
+  // Secure sync queuing: only queue if server signature is attached
+  if (signature) {
+    queueSyncItem("mockScores", "create", `exam-${level}-${Date.now()}`, {
+      level,
+      score,
+      total,
+      percentage,
+      passed,
+      signature,
+      date: examDate,
+    });
+  }
+
   return { passed, percentage };
 }

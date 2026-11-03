@@ -59,6 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
       };
       saveStudentProfile(updated);
+      if (typeof document !== "undefined") {
+        document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify({
+          name: updated.name,
+          email: updated.email,
+          role: updated.role,
+        }))}; path=/; SameSite=Lax; max-age=604800`;
+      }
       setUser({
         name: updated.name,
         email: updated.email,
@@ -77,6 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     try {
       localStorage.removeItem("nihongo_user");
+      if (typeof document !== "undefined") {
+        document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      }
     } catch {
       // ignore
     }

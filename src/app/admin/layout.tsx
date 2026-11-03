@@ -46,6 +46,14 @@ export default function AdminLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
+    try {
+      localStorage.removeItem("nihongo_user");
+      if (typeof document !== "undefined") {
+        document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      }
+    } catch {
+      // ignore
+    }
     router.push("/login");
   };
 

@@ -135,11 +135,71 @@ N1:[
 export type JLPTLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type RawQuestionTuple = [string, string[], number, string];
 
+// Full question definition (Contains answer keys - Server and Admin CMS only)
+export interface ServerExamQuestion {
+  id: string;
+  level: JLPTLevel;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  category: 'Vocabulary' | 'Grammar' | 'Reading' | 'Listening';
+}
+
+// Client-safe question definition (NEVER contains correctIndex or explanation)
+export interface ClientExamQuestion {
+  id: string;
+  level: JLPTLevel;
+  question: string;
+  options: string[];
+  category: 'Vocabulary' | 'Grammar' | 'Reading' | 'Listening';
+}
+
+// Post-submission verified review item
+export interface ExamReviewItem {
+  id: string;
+  question: string;
+  options: string[];
+  userSelected: number | null;
+  correctIndex: number;
+  isCorrect: boolean;
+  explanation: string;
+  category: 'Vocabulary' | 'Grammar' | 'Reading' | 'Listening';
+}
+
+export function getServerQuestionsForLevel(level: JLPTLevel): ServerExamQuestion[] {
+  const primary = ((MOCK_BANK as unknown) as Record<string, RawQuestionTuple[]>)[level] || [];
+  const extra = ((MOCK_BANK_EXTRA as unknown) as Record<string, RawQuestionTuple[]>)[level] || [];
+  const combined = [...primary, ...extra];
+  return combined.map(([question, options, correctIndex, explanation], idx) => ({
+    id: `${level.toLowerCase()}-q-${idx + 1}`,
+    level,
+    question,
+    options,
+    correctIndex,
+    explanation,
+    category: question.includes('読み方') || question.includes('意味') ? 'Vocabulary' : 'Grammar'
+  }));
+}
+
+// Client-safe delivery: strips correctIndex and explanation
+export function getClientQuestionsForLevel(level: JLPTLevel): ClientExamQuestion[] {
+  const serverQuestions = getServerQuestionsForLevel(level);
+  return serverQuestions.map(({ id, level: qLevel, question, options, category }) => ({
+    id,
+    level: qLevel,
+    question,
+    options,
+    category
+  }));
+}
+
 export function getQuestionsForLevel(level: JLPTLevel): ExamQuestion[] {
   const primary = ((MOCK_BANK as unknown) as Record<string, RawQuestionTuple[]>)[level] || [];
   const extra = ((MOCK_BANK_EXTRA as unknown) as Record<string, RawQuestionTuple[]>)[level] || [];
   const combined = [...primary, ...extra];
-  return combined.map(([question, options, correctIndex, explanation]) => ({
+  return combined.map(([question, options, correctIndex, explanation], idx) => ({
+    id: `${level.toLowerCase()}-q-${idx + 1}`,
     question,
     options,
     correctIndex,

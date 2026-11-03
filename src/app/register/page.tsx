@@ -76,6 +76,13 @@ export default function RegisterPage() {
           mockScores: [],
         };
         localStorage.setItem("nihongo_user", JSON.stringify(newUser));
+        if (typeof document !== "undefined") {
+          document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify({
+            name: newUser.name,
+            email: newUser.email,
+            role: "student",
+          }))}; path=/; SameSite=Lax; max-age=604800`;
+        }
       } catch {
         // ignore storage error
       }

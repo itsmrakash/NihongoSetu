@@ -31,29 +31,37 @@ export default function LoginPage() {
 
       // Check admin credentials or role switch
       if (role === "admin" || email.includes("admin")) {
+        const sessionPayload = {
+          name: "Master Sensei / Administrator",
+          email: email,
+          role: "admin",
+          targetLevel: "N1",
+          nativeLanguage: "en",
+          loggedInAt: new Date().toISOString(),
+        };
         try {
-          localStorage.setItem("nihongo_user", JSON.stringify({
-            name: "Master Sensei / Administrator",
-            email: email,
-            role: "admin",
-            targetLevel: "N1",
-            nativeLanguage: "en",
-            loggedInAt: new Date().toISOString(),
-          }));
+          localStorage.setItem("nihongo_user", JSON.stringify(sessionPayload));
+          if (typeof document !== "undefined") {
+            document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify(sessionPayload))}; path=/; SameSite=Lax; max-age=604800`;
+          }
         } catch {
           // ignore storage error
         }
         router.push("/admin");
       } else {
+        const sessionPayload = {
+          name: email.split("@")[0] || "Japanese Learner",
+          email: email,
+          role: "student",
+          targetLevel: "N5",
+          nativeLanguage: "en",
+          loggedInAt: new Date().toISOString(),
+        };
         try {
-          localStorage.setItem("nihongo_user", JSON.stringify({
-            name: email.split("@")[0] || "Japanese Learner",
-            email: email,
-            role: "student",
-            targetLevel: "N5",
-            nativeLanguage: "en",
-            loggedInAt: new Date().toISOString(),
-          }));
+          localStorage.setItem("nihongo_user", JSON.stringify(sessionPayload));
+          if (typeof document !== "undefined") {
+            document.cookie = `nihongo_session=${encodeURIComponent(JSON.stringify(sessionPayload))}; path=/; SameSite=Lax; max-age=604800`;
+          }
         } catch {
           // ignore storage error
         }

@@ -24,6 +24,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { getStudentProfile, recordStudyActivity, StudentProfile } from "@/lib/storage/studentState";
+import { initOfflineSync } from "@/lib/storage/offline";
 import { LANGUAGES } from "@/components/public/Navbar";
 
 const PORTAL_NAV_ITEMS = [
@@ -52,6 +53,11 @@ export default function PortalLayout({
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
+  useEffect(() => {
+    const cleanup = initOfflineSync();
+    return cleanup;
+  }, []);
+
   const handleLanguageChange = (code: string) => {
     if (!profile) return;
     const updated = { ...profile, nativeLanguage: code };
@@ -65,6 +71,14 @@ export default function PortalLayout({
   };
 
   const handleLogout = () => {
+    try {
+      localStorage.removeItem("nihongo_user");
+      if (typeof document !== "undefined") {
+        document.cookie = "nihongo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      }
+    } catch {
+      // ignore
+    }
     router.push("/login");
   };
 

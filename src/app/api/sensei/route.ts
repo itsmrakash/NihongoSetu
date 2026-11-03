@@ -128,7 +128,33 @@ Passing threshold on NihongoSetu mock exams is 70%. Consistency in daily flashca
 ];
 
 export async function POST(req: NextRequest) {
-  // 1. Rate limiting check
+  // 1. Authentication Check (Require authenticated learner or admin session)
+  const sessionCookie = req.cookies.get("nihongo_session")?.value;
+  const authHeader = req.headers.get("authorization");
+
+  let isAuthenticated = false;
+  if (sessionCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(sessionCookie));
+      if (parsed && typeof parsed.email === "string" && parsed.email.length > 0) {
+        isAuthenticated = true;
+      }
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+  if (!isAuthenticated && authHeader && authHeader.startsWith("Bearer ")) {
+    isAuthenticated = true;
+  }
+
+  if (!isAuthenticated) {
+    return NextResponse.json(
+      { error: "Authentication required to consult AI Sensei. Please sign in to NihongoSetu." },
+      { status: 401 }
+    );
+  }
+
+  // 2. Rate limiting check
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
