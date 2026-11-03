@@ -19,7 +19,7 @@ export interface TranslationMap {
   [key: string]: string | undefined;
 }
 
-export const T={en:{home:"Home",account:"Account",kana:"Basic",grammar:"Grammar",vocab:"Vocabulary",kanji:"Kanji",listen:"Listening",mock:"Mock Test",videos:"Video Lessons",levels:"Levels",exam:"Exam",sensei:"Sensei",tag:"Your Bridge to Japanese.",streak:"Day streak",cont:"Start learning",mean:"What does this word mean?"},
+export const T: Record<string, TranslationMap> = {en:{home:"Home",account:"Account",kana:"Basic",grammar:"Grammar",vocab:"Vocabulary",kanji:"Kanji",listen:"Listening",mock:"Mock Test",videos:"Video Lessons",levels:"Levels",exam:"Exam",sensei:"Sensei",tag:"Your Bridge to Japanese.",streak:"Day streak",cont:"Start learning",mean:"What does this word mean?"},
 ta:{home:"முகப்பு",kana:"அடிப்படை",grammar:"இலக்கணம்",vocab:"சொற்களஞ்சியம்",kanji:"காஞ்சி",listen:"கேட்டல்",mock:"மாதிரித் தேர்வு",videos:"வீடியோ பாடங்கள்",levels:"நிலைகள்",exam:"தேர்வு",sensei:"சென்செய்",tag:"ஜப்பானிய மொழிக்கான உங்கள் பாலம்.",streak:"தொடர் நாட்கள்",cont:"கற்கத் தொடங்குங்கள்",mean:"இந்த வார்த்தையின் பொருள் என்ன?"},
 hi:{home:"होम",kana:"बुनियादी",vocab:"शब्दावली",kanji:"कांजी",levels:"स्तर",exam:"परीक्षा",sensei:"सेंसेई",tag:"जापानी की ओर आपका सेतु।",streak:"लगातार सीखने के दिन",cont:"सीखना शुरू करें",mean:"इस शब्द का अर्थ क्या है?"},
 te:{home:"హోమ్",kana:"ప్రాథమికం",vocab:"పదజాలం",kanji:"కాంజి",levels:"స్థాయిలు",exam:"పరీక్ష",sensei:"సెన్సే",tag:"జపనీస్ నేర్చుకునే మీ వారధి.",streak:"వరుసగా నేర్చుకున్న రోజులు",cont:"నేర్చుకోవడం ప్రారంభించండి",mean:"ఈ పదానికి అర్థం ఏమిటి?"},
@@ -32,7 +32,7 @@ ar:{home:"الرئيسية",kana:"أساسي",vocab:"المفردات",kanji:"ك
 fr:{home:"Accueil",kana:"Bases",vocab:"Vocabulaire",kanji:"Kanji",levels:"Niveaux",exam:"Examen",sensei:"Sensei",tag:"Votre passerelle vers le japonais.",streak:"Jours d’apprentissage consécutifs",cont:"Commencer à apprendre",mean:"Que signifie ce mot ?"},
 es:{home:"Inicio",kana:"Básico",vocab:"Vocabulario",kanji:"Kanji",levels:"Niveles",exam:"Examen",sensei:"Sensei",tag:"Tu puente para aprender japonés.",streak:"Días seguidos de aprendizaje",cont:"Empezar a aprender",mean:"¿Qué significa esta palabra?"}};;
 export const LISTEN_LABELS={en:"Listening",ta:"கேட்டல்",hi:"सुनना",te:"వినడం",ml:"കേൾവി",kn:"ಆಲಿಸುವಿಕೆ",bn:"শোনা",mr:"ऐकणे",tl:"Pakikinig",ar:"الاستماع",fr:"Écoute",es:"Escucha"};
-const LISTEN_TEXT={
+export const LISTEN_TEXT: Record<string, string[]> = {
 en:["Japanese Listening Practice","Listen to a sentence, change the speed, then choose its meaning.","▶ Play","🐢 Slow","Show transcript","Hide transcript","What does it mean?","Check answer","Correct! Well done.","Not quite. Listen again.","Choose an answer first."],
 ta:["ஜப்பானிய கேட்புப் பயிற்சி","வாக்கியத்தைக் கேட்டு, வேகத்தை மாற்றி, அதன் பொருளைத் தேர்ந்தெடுக்கவும்.","▶ கேள்","🐢 மெதுவாகக் கேள்","வாக்கியத்தைக் காட்டு","வாக்கியத்தை மறை","இதன் பொருள் என்ன?","பதிலைச் சரிபார்","சரி! நன்றாகக் கேட்டீர்கள்.","சரியில்லை. மீண்டும் கேளுங்கள்.","முதலில் பதிலைத் தேர்ந்தெடுக்கவும்."],
 hi:["जापानी सुनने का अभ्यास","वाक्य सुनें, गति बदलें और उसका अर्थ चुनें।","▶ सुनें","🐢 धीरे सुनें","वाक्य दिखाएँ","वाक्य छिपाएँ","इसका अर्थ क्या है?","उत्तर जाँचें","सही! बहुत अच्छा।","सही नहीं। फिर से सुनें।","पहले उत्तर चुनें।"],
@@ -46,8 +46,20 @@ ar:["تدريب الاستماع إلى اليابانية","استمع إلى �
 fr:["Exercice d’écoute en japonais","Écoutez une phrase, changez la vitesse et choisissez son sens.","▶ Écouter","🐢 Lentement","Afficher le texte","Masquer le texte","Que signifie cette phrase ?","Vérifier","Correct ! Bravo.","Pas tout à fait. Réécoutez.","Choisissez d’abord une réponse."],
 es:["Práctica auditiva de japonés","Escucha una frase, cambia la velocidad y elige su significado.","▶ Escuchar","🐢 Lento","Mostrar texto","Ocultar texto","¿Qué significa?","Comprobar","¡Correcto! Muy bien.","No es correcto. Escucha otra vez.","Elige primero una respuesta."]
 };
-const LT=()=>LISTEN_TEXT[S.lang]||LISTEN_TEXT.en;
-const LISTEN_ITEMS=[
+
+export const getListenText = (lang: string = "en"): string[] => {
+  return LISTEN_TEXT[lang] || LISTEN_TEXT.en;
+};
+
+export interface ListenItem {
+  jp: string;
+  romaji: string;
+  meaning: Record<string, string>;
+  choices: Record<string, string[]>;
+  answer: number;
+}
+
+export const LISTEN_ITEMS: ListenItem[] = [
 {jp:"おはようございます。",romaji:"Ohayou gozaimasu.",meaning:{en:"Good morning",ta:"காலை வணக்கம்",hi:"सुप्रभात",te:"శుభోదయం",ml:"സുപ്രഭാതം",kn:"ಶುಭೋದಯ",bn:"সুপ্রভাত",mr:"शुभ सकाळ",tl:"Magandang umaga",ar:"صباح الخير",fr:"Bonjour",es:"Buenos días"},choices:{en:["Good morning","Good night","Thank you"],ta:["காலை வணக்கம்","இரவு வணக்கம்","நன்றி"],hi:["सुप्रभात","शुभ रात्रि","धन्यवाद"],te:["శుభోదయం","శుభ రాత్రి","ధన్యవాదాలు"],ml:["സുപ്രഭാതം","ശുഭ രാത്രി","നന്ദി"],kn:["ಶುಭೋದಯ","ಶುಭ ರಾತ್ರಿ","ಧನ್ಯವಾದಗಳು"],bn:["সুপ্রভাত","শুভ রাত্রি","ধন্যবাদ"],mr:["शुभ सकाळ","शुभ रात्री","धन्यवाद"],tl:["Magandang umaga","Magandang gabi","Salamat"],ar:["صباح الخير","تصبح على خير","شكراً"],fr:["Bonjour","Bonne nuit","Merci"],es:["Buenos días","Buenas noches","Gracias"]},answer:0},
 {jp:"ありがとうございます。",romaji:"Arigatou gozaimasu.",meaning:{en:"Thank you very much",ta:"மிக்க நன்றி",hi:"बहुत धन्यवाद",te:"చాలా ధన్యవాదాలు",ml:"വളരെ നന്ദി",kn:"ತುಂಬಾ ಧನ್ಯವಾದಗಳು",bn:"অনেক ধন্যবাদ",mr:"खूप धन्यवाद",tl:"Maraming salamat",ar:"شكراً جزيلاً",fr:"Merci beaucoup",es:"Muchas gracias"},choices:{en:["Excuse me","Thank you very much","Goodbye"],ta:["மன்னிக்கவும்","மிக்க நன்றி","பிரியாவிடை"],hi:["माफ़ कीजिए","बहुत धन्यवाद","अलविदा"],te:["క్షమించండి","చాలా ధన్యవాదాలు","వీడ్కోలు"],ml:["ക്ഷമിക്കണം","വളരെ നന്ദി","വിട"],kn:["ಕ್ಷಮಿಸಿ","ತುಂಬಾ ಧನ್ಯವಾದಗಳು","ವಿದಾಯ"],bn:["দুঃখিত","অনেক ধন্যবাদ","বিদায়"],mr:["माफ करा","खूप धन्यवाद","निरोप"],tl:["Paumanhin","Maraming salamat","Paalam"],ar:["عذراً","شكراً جزيلاً","وداعاً"],fr:["Excusez-moi","Merci beaucoup","Au revoir"],es:["Disculpe","Muchas gracias","Adiós"]},answer:1},
 {jp:"これは何ですか。",romaji:"Kore wa nan desu ka?",meaning:{en:"What is this?",ta:"இது என்ன?",hi:"यह क्या है?",te:"ఇది ఏమిటి?",ml:"ഇത് എന്താണ്?",kn:"ಇದು ಏನು?",bn:"এটি কী?",mr:"हे काय आहे?",tl:"Ano ito?",ar:"ما هذا؟",fr:"Qu’est-ce que c’est ?",es:"¿Qué es esto?"},choices:{en:["Where is this?","What is this?","Who is this?"],ta:["இது எங்கே?","இது என்ன?","இவர் யார்?"],hi:["यह कहाँ है?","यह क्या है?","यह कौन है?"],te:["ఇది ఎక్కడ?","ఇది ఏమిటి?","ఇతను ఎవరు?"],ml:["ഇത് എവിടെയാണ്?","ഇത് എന്താണ്?","ഇത് ആരാണ്?"],kn:["ಇದು ಎಲ್ಲಿದೆ?","ಇದು ಏನು?","ಇವರು ಯಾರು?"],bn:["এটি কোথায়?","এটি কী?","ইনি কে?"],mr:["हे कुठे आहे?","हे काय आहे?","ही व्यक्ती कोण?"],tl:["Nasaan ito?","Ano ito?","Sino ito?"],ar:["أين هذا؟","ما هذا؟","من هذا؟"],fr:["Où est-ce ?","Qu’est-ce que c’est ?","Qui est-ce ?"],es:["¿Dónde está esto?","¿Qué es esto?","¿Quién es?"]},answer:1},
