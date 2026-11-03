@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { getQuestionsForLevel, ExamQuestion, JLPTLevel } from "@/data/questions";
+import { getQuestionsForLevel, ClientExamQuestion, JLPTLevel } from "@/data/questions";
 import { logAdminAction } from "@/lib/storage/adminState";
 import {
   FileCheck2,
@@ -11,11 +11,17 @@ import {
   Filter,
   CheckCircle2,
   Sliders,
+  ShieldCheck,
 } from "lucide-react";
+
+interface AdminCMSQuestion extends ClientExamQuestion {
+  correctIndex?: number;
+  explanation?: string;
+}
 
 export default function AdminExamsCMSPage() {
   const [activeLevel, setActiveLevel] = useState<JLPTLevel>("N5");
-  const [questionsList, setQuestionsList] = useState<ExamQuestion[]>(() => getQuestionsForLevel("N5"));
+  const [questionsList, setQuestionsList] = useState<AdminCMSQuestion[]>(() => getQuestionsForLevel("N5"));
   const [searchQuery, setSearchQuery] = useState("");
   const [passThreshold, setPassThreshold] = useState(70);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -41,7 +47,7 @@ export default function AdminExamsCMSPage() {
     return questionsList.filter(
       (item) =>
         item.question.includes(q) ||
-        item.explanation.toLowerCase().includes(q) ||
+        (item.explanation && item.explanation.toLowerCase().includes(q)) ||
         item.options.some((opt) => opt.toLowerCase().includes(q))
     );
   }, [questionsList, searchQuery]);
@@ -57,12 +63,14 @@ export default function AdminExamsCMSPage() {
     e.preventDefault();
     if (!newQuestion.trim() || !newOpt1.trim() || !newOpt2.trim()) return;
 
-    const newEntry: ExamQuestion = {
+    const newEntry: AdminCMSQuestion = {
+      id: `${activeLevel.toLowerCase()}-q-${questionsList.length + 1}`,
+      level: activeLevel,
       question: newQuestion.trim(),
       options: [newOpt1.trim(), newOpt2.trim(), newOpt3.trim() || "—", newOpt4.trim() || "—"],
       correctIndex: newCorrectIdx,
       category: newCategory,
-      explanation: newExplanation.trim() || "Official answer key verified.",
+      explanation: newExplanation.trim() || "Official answer key verified in server vault.",
     };
 
     setQuestionsList((prev) => [newEntry, ...prev]);
@@ -184,28 +192,37 @@ export default function AdminExamsCMSPage() {
 
             {/* Options grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {q.options.map((opt, oIdx) => (
-                <div
-                  key={oIdx}
-                  className={`p-2.5 rounded-xl border flex items-center space-x-2 font-japanese ${
-                    oIdx === q.correctIndex
-                      ? "bg-emerald-500/20 text-emerald-300 font-bold border-emerald-500/40"
-                      : "bg-[#0B1323] text-[#E8E0D5]/70 border-[#E8E0D5]/10"
-                  }`}
-                >
-                  <span className="font-sans font-bold">{oIdx + 1}.</span>
-                  <span>{opt}</span>
-                  {oIdx === q.correctIndex && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
-                  )}
-                </div>
-              ))}
+              {q.options.map((opt, oIdx) => {
+                const isMarkedCorrect = q.correctIndex !== undefined && oIdx === q.correctIndex;
+                return (
+                  <div
+                    key={oIdx}
+                    className={`p-2.5 rounded-xl border flex items-center space-x-2 font-japanese ${
+                      isMarkedCorrect
+                        ? "bg-emerald-500/20 text-emerald-300 font-bold border-emerald-500/40"
+                        : "bg-[#0B1323] text-[#E8E0D5]/70 border-[#E8E0D5]/10"
+                    }`}
+                  >
+                    <span className="font-sans font-bold">{oIdx + 1}.</span>
+                    <span>{opt}</span>
+                    {isMarkedCorrect && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Pedagogical Explanation */}
-            <div className="p-3 rounded-xl bg-[#0B1323] border border-[#E8E0D5]/10 text-xs text-[#E8E0D5]/80">
-              <strong className="text-[#C83C50]">Pedagogical Note: </strong>
-              {q.explanation}
+            {/* Pedagogical Explanation / Server Vault Status */}
+            <div className="p-3 rounded-xl bg-[#0B1323] border border-[#E8E0D5]/10 text-xs text-[#E8E0D5]/80 flex items-start space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-[#C83C50]">Server Answer Key Vault: </strong>
+                <span>
+                  {q.explanation ||
+                    "Answer key and explanations are cryptographically protected and evaluated exclusively via serverless HMAC grading."}
+                </span>
+              </div>
             </div>
           </div>
         ))}

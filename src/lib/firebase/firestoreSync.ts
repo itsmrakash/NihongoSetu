@@ -58,3 +58,4 @@ export async function syncItemToFirestore(item: SyncQueueItem): Promise<boolean>
     return false;
   }
 }
+

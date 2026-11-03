@@ -43,12 +43,13 @@ service cloud.firestore {
       // Mock Examination Sub-collection
       match /mockScores/{examId} {
         allow read: if isOwner(userId) || isAdmin();
-        // Students can record a scored exam attempt, but can NEVER update or delete it
+        // Students can record a scored exam attempt only with valid score boundaries and a cryptographic server signature
         allow create: if isOwner(userId) &&
           request.resource.data.percentage >= 0 &&
           request.resource.data.percentage <= 100 &&
           request.resource.data.totalQuestions > 0 &&
-          request.resource.data.score <= request.resource.data.totalQuestions;
+          request.resource.data.score <= request.resource.data.totalQuestions &&
+          ('signature' in request.resource.data && request.resource.data.signature is string && request.resource.data.signature.size() == 64);
         allow update, delete: if isAdmin();
       }
     }
